@@ -1,0 +1,117 @@
+# 忽略所有的文件
+*
+
+# 不忽略目录
+!*/
+
+# 指定忽略的目录名
+/EgoServer/EgoServer/.vs
+/EgoServer/EgoServer/x64
+/EgoServer/updator/out/build
+/EgoServer/webrtcinterop/out/build
+/EgoServer/webrtcinterop/x64
+/EgoQt/webrtcinterop/out/build
+/EgoQt/EgoDLL/x64
+/EgoQt/HttpDLL/x64
+
+# 指定不忽略文件类型
+!*.editorconfig
+!*.gitattributes
+!*.gitignore
+
+# --- for ros ---
+!*.launch
+!*.action
+!*.msg
+!*.cfg
+!*.srv
+
+# --- for vs ---
+.vs/
+vcpkg/
+vcpkg_installed/
+!*.vcxproj
+!*.sln
+
+# --- for ide ---
+.vscode/
+.claude/
+
+# --- for qt ---
+!*.ui
+!*.qml
+!*.qrc
+!*.png
+!*.ttf
+!*.bmp
+!*.inc
+!*.wav
+!*.idb
+
+# --- for c/c++ ---
+!*.cpp
+!*.hpp
+!*.cc
+!*.h
+!*.c
+!*.cmake
+bin/
+out/
+install/
+devel/
+
+# --- for config ---
+!*.ini
+!*.json
+!*.yml
+!*Dockerfile
+
+# --- for shell ---
+!*.sh
+!*.bash
+!*.bat
+!*.ps1
+
+# --- for rust ---
+!*.rs
+!*.toml
+!*.lock
+
+# --- for tauri ---
+/gen/schemas
+target/
+!*.icns
+!*.ico
+!*.png
+
+# --- for js ---
+node_modules/
+build/
+dist/
+!*.html
+!*.vue
+!*.js
+!*.ts
+!*.svg
+!*.ejs
+!*.css
+!*.scss
+!*.woff
+!*.lock
+
+# --- for py ---
+__pycache__/
+dist/
+!*.py
+!*.spec
+!*.wxs
+!*.proto
+
+# --- for document ---
+!*.md
+!*.txt
+!*.pdf
+!*.doc
+!*.docx
+!*.xls
+!*.xlsx
