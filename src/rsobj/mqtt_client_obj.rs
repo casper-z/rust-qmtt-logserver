@@ -2,25 +2,25 @@ use rumqttc::{AsyncClient, MqttOptions, QoS, Event, Packet};
 use std::time::Duration;
 use chrono::{Local, TimeZone};
 use std::sync::Arc;
-use super::async_logger::AsyncLogger;
+use super::async_logger_obj::AsyncLoggerObj;
 
-pub struct MqttClient {
+pub struct MqttClientObj {
     client: AsyncClient,
     eventloop: rumqttc::EventLoop,  // 完全拥有，无需 Arc
-    pub logger: Arc<AsyncLogger>,
+    pub logger: Arc<AsyncLoggerObj>,
 }
 
-// 允许 MqttClient 在任务间移动（每个任务完全拥有自己的实例，无共享）
+// 允许 MqttClientObj 在任务间移动（每个任务完全拥有自己的实例，无共享）
 // rumqttc 的类型不是 Send+Sync，但我们的使用方式是每个任务独立拥有，无需共享
-unsafe impl Send for MqttClient {}
-unsafe impl Sync for MqttClient {}
+unsafe impl Send for MqttClientObj {}
+unsafe impl Sync for MqttClientObj {}
 
-impl MqttClient {
+impl MqttClientObj {
     pub fn new(host: &str, port: u16, client_id: &str, topic: &str, log_dir: &str, max_file_size: usize, timeout_secs: u64, log_retention_hours: i64) -> Result<Self, Box<dyn std::error::Error>> {
         let mut mqttoptions = MqttOptions::new(client_id, host, port);
         mqttoptions.set_keep_alive(Duration::from_secs(5));
         let (client, eventloop) = AsyncClient::new(mqttoptions, 10);
-        let logger = Arc::new(AsyncLogger::with_config(topic, max_file_size, log_dir, timeout_secs, log_retention_hours)?);
+        let logger = Arc::new(AsyncLoggerObj::with_config(topic, max_file_size, log_dir, timeout_secs, log_retention_hours)?);
         Ok(Self { client, eventloop, logger })
     }
 
@@ -33,7 +33,7 @@ impl MqttClient {
         Ok(self.eventloop.poll().await?)
     }
 
-    pub fn handle_event(event: Event, logger: Arc<AsyncLogger>) {
+    pub fn handle_event(event: Event, logger: Arc<AsyncLoggerObj>) {
         tokio::spawn(async move {
             match event {
                 Event::Incoming(packet) => {

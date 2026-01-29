@@ -18,7 +18,7 @@ timeout_secs = 1
 # 超过此时间的日志文件将被自动清理
 # 设置为 0 则不自动清理
 # 默认值：0
-log_retention_hours = 24
+log_retention_hours = 12
 
 # MQTT 服务器配置
 host = "192.168.1.13"

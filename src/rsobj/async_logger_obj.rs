@@ -1,37 +1,41 @@
-use tokio::fs::{OpenOptions, File, read_dir, remove_file};
+use tokio::fs::{read_dir, remove_file, OpenOptions};
 use tokio::io::{AsyncWriteExt, BufWriter};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use std::path::PathBuf;
-use chrono::{Local, DateTime};
+use chrono::{Local, DateTime, NaiveDateTime, TimeZone};
 use std::time::Duration;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use super::log_file_obj::LogFile;
+
+/// 全局标记，确保清理任务只启动一次
+static CLEANUP_STARTED: AtomicBool = AtomicBool::new(false);
 
 /// 异步日志写入器
-pub struct AsyncLogger {
+pub struct AsyncLoggerObj {
     tx: mpsc::Sender<String>,
-}
-
-struct LogFile {
-    writer: BufWriter<File>,
-    current_size: usize,
-    file_index: usize,
-    last_write_time: std::time::Instant,  // 记录上次写入时间
 }
 
 /// 解析文件名中的时间戳，格式：YYYY-MM-DD_HH-MM-SS-topic-NN.jsonl
 fn parse_log_filename(filename: &str) -> Option<DateTime<Local>> {
-    // 匹配格式：2024-01-15_10-30-45_topic_name-00.jsonl
-    // 先找到第一个下划线之前的时间部分
-    if let Some(end_pos) = filename.find('_') {
-        let timestamp_part = &filename[..end_pos]; // "2024-01-15_10-30-45"
-        // 将下划线替换为空格以符合 datetime 格式
-        let ts = timestamp_part.replace('_', " ");
-        DateTime::parse_from_str(&ts, "%Y-%m-%d %H:%M:%S")
-            .ok()
-            .map(|dt| dt.with_timezone(&Local))
-    } else {
-        None
+    // 文件名格式：2024-01-15_10-30-45_topic_name-00.jsonl
+    // 时间部分固定是前19个字符：YYYY-MM-DD_HH-MM-SS
+    if filename.len() < 19 {
+        return None;
     }
+    let timestamp_part = &filename[..19]; // "2024-01-15_10-30-45"
+    // 将下划线替换为空格，将时间部分的 - 替换为 :
+    // 例如 "2024-01-15_10-30-45" -> "2024-01-15 10:30:45"
+    let date_part = &timestamp_part[..10]; // "2024-01-15"
+    let time_part = &timestamp_part[11..]; // "10-30-45"
+    let time_replaced = time_part.replace('-', ":");
+    let ts = format!("{} {}", date_part, time_replaced);
+
+    // 使用 NaiveDateTime 解析（不带时区），然后转换为本地时间
+    NaiveDateTime::parse_from_str(&ts, "%Y-%m-%d %H:%M:%S")
+        .ok()
+        .and_then(|naive_dt| Local.from_local_datetime(&naive_dt).single())
 }
 
 /// 清理过期日志文件
@@ -70,6 +74,10 @@ async fn cleanup_expired_logs(base_dir: &str, retention_hours: i64) {
 
         if let Some(file_time) = parse_log_filename(filename) {
             if file_time < now - threshold {
+                // 先检查文件是否存在，避免重复删除报错
+                if !path.exists() {
+                    continue;
+                }
                 if let Ok(metadata) = entry.metadata().await {
                     cleaned_size += metadata.len();
                 }
@@ -90,7 +98,7 @@ async fn cleanup_expired_logs(base_dir: &str, retention_hours: i64) {
     }
 }
 
-impl AsyncLogger {
+impl AsyncLoggerObj {
     /// 创建日志写入器，指定最大文件大小和目录
     /// timeout_secs: 超过多少秒没新数据则创建新日志文件
     /// log_retention_hours: 日志保留小时数，0 表示不自动清理
@@ -105,24 +113,25 @@ impl AsyncLogger {
         let base_dir_clone = base_dir.clone();
         let retention_hours_clone = log_retention_hours;
 
+        // 只在第一次调用时启动清理任务（使用 AtomicBool 确保线程安全）
+        if retention_hours_clone > 0 && CLEANUP_STARTED.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+            let cleanup_base_dir = base_dir_clone.to_string();
+            let retention = retention_hours_clone;
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600)); // 每1小时清理一次日志文件
+                loop {
+                    interval.tick().await;
+                    cleanup_expired_logs(&cleanup_base_dir, retention).await;
+                }
+            });
+        }
+
         tokio::spawn(async move {
             let mut current_file: Option<LogFile> = None;
             let mut file_index = 0usize;
 
             // 话题中的 / 转为 _ 用于文件名
             let safe_topic_name = topic_name.replace('/', "_");
-
-            // 启动后台定时清理任务（每小时执行一次）
-            if retention_hours_clone > 0 {
-                let cleanup_base_dir = base_dir_clone.to_string();
-                tokio::spawn(async move {
-                    let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600)); // 1小时
-                    loop {
-                        interval.tick().await;
-                        cleanup_expired_logs(&cleanup_base_dir, retention_hours_clone).await;
-                    }
-                });
-            }
 
             while let Some(line) = rx.recv().await {
                 // 确保 logs 目录存在
@@ -229,4 +238,3 @@ impl AsyncLogger {
         Ok(())
     }
 }
-
