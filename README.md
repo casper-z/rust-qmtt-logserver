@@ -1,5 +1,4 @@
-[English](./README.md) | [简体中文](./README-CN.md)
-
+English | [简体中文](./README-CN.md)
 # MQTT Log Subscriber Service (mqtt_subscriber)
 
 An MQTT log subscriber service written in Rust that receives MQTT messages and persists data to log files.

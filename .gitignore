@@ -4,16 +4,6 @@
 # 不忽略目录
 !*/
 
-# 指定忽略的目录名
-/EgoServer/EgoServer/.vs
-/EgoServer/EgoServer/x64
-/EgoServer/updator/out/build
-/EgoServer/webrtcinterop/out/build
-/EgoServer/webrtcinterop/x64
-/EgoQt/webrtcinterop/out/build
-/EgoQt/EgoDLL/x64
-/EgoQt/HttpDLL/x64
-
 # 指定不忽略文件类型
 !*.editorconfig
 !*.gitattributes
@@ -73,13 +63,11 @@ devel/
 !*.ps1
 
 # --- for rust ---
+target/
+gen/
 !*.rs
 !*.toml
 !*.lock
-
-# --- for tauri ---
-/gen/schemas
-target/
 !*.icns
 !*.ico
 !*.png
